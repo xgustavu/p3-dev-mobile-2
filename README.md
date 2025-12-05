@@ -64,19 +64,94 @@ O sistema implementa autenticação JWT, três níveis de usuário, CRUD complet
 # 🧩 Design Patterns Utilizados
 
 ### ✔ Middleware Pattern
-Usado para autenticação/autorizações.
+**Objetivo:** Centralizar regras que precisam ser executadas antes das rotas, como autenticação e autorização.
+
+**Motivo para usar:** Evita duplicação de código nas rotas e aplica segurança de forma padronizada.
+
+**Trecho de código usado no projeto:**
+```js// middleware de autenticação
+async function authMiddleware(req,res,next){
+  const header = req.headers.authorization;
+  if(!header) return res.status(401).json({ error: 'No token' });
+  const token = header.split(' ')[1];
+  try{
+    const data = jwt.verify(token, SECRET);
+    const q = await pool.query('SELECT id, username, name, role, active FROM users WHERE id = $1', [data.id]);
+    if(q.rowCount === 0) return res.status(401).json({ error: 'Invalid user' });
+    req.user = q.rows[0];
+    next();
+  }catch(e){
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+```
+
+---
 
 ### ✔ Factory Pattern
-Usado na criação de tokens e objetos de card/usuário.
+**Objetivo:** Criar objetos padronizados e encapsular lógica de construção.
 
-### ✔ MVC Simplificado
-Rotas → lógica → banco (separação de responsabilidades).
+**Motivo para usar:** Facilita manutenção, evita repetição e centraliza a forma como tokens e objetos são criados.
+
+**Trecho de código usado no projeto:**
+```js// factory para gerar token JWT
+function generateToken(user){
+  return jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET, { expiresIn: '7d' });
+}
+```
+
+---
+
+### ✔ MVC Simplificado (Separação de responsabilidades)
+**Objetivo:** Manter o backend organizado separando responsabilidades.
+
+**Motivo para usar:** Facilita manutenção, testes e clareza — especialmente em APIs REST.
+
+**Trecho de código usado no projeto:**
+```js// rota (Controller)
+app.post('/auth/login', async (req,res) => {
+  const { username, password } = req.body;
+  const q = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+  ...
+});
+
+// camada de acesso a dados (Model)
+await pool.query('SELECT id, username FROM users WHERE id = $1', [id]);
+```
+
+---
 
 ### ✔ Observer Pattern (React Hooks)
-UI reage a mudanças de estado.
+**Objetivo:** Atualizar a interface automaticamente quando o estado muda.
+
+**Motivo para usar:** O Kanban reage a atualizações sem precisar recarregar a tela.
+
+**Trecho de código usado no projeto:**
+```js// React observa mudanças de estado
+useEffect(() => {
+  fetchCards();
+}, [token]);
+```
+
+---
 
 ### ✔ Component-Based Architecture
-Tela dividida em componentes reutilizáveis.
+**Objetivo:** Reutilizar partes da interface e manter código organizado.
+
+**Motivo para usar:** Cada parte do app (colunas, cards, formulários) é isolada e fácil de manter.
+
+**Trecho de código usado no projeto:**
+```jsx
+function ColumnSelector({ value, onChange }){
+  return (
+    <View style={{ marginVertical: 6 }}>
+      <TouchableOpacity onPress={() => onChange('todo')}><Text>Todo</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => onChange('doing')}><Text>Doing</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => onChange('done')}><Text>Done</Text></TouchableOpacity>
+    </View>
+  );
+}
+```
 
 ---
 
